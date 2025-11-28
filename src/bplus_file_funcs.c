@@ -76,14 +76,13 @@ int bplus_close_file(const int file_desc, BPlusMeta* metadata)
   return 0;
 }
 
-void insert_in_block(dataNode *node, const Record *record, int target);
 void insert_in_full_block();
 
 int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *record){
 
   BF_Block *block;
   BF_Block_Init(&block);
-
+  
   if (metadata->depth == 0){
 
   }else{
@@ -124,18 +123,39 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
     dataNode* node = BF_Block_GetData(block);
 
     int record_count = node->number_of_records;
+
+    if(record_count==0 || (record_count!= BF_BLOCK_SIZE/sizeof(Record) && record_get_key(&(metadata->schema), record) > record_get_key(&(metadata->schema), &(node->rec_array[record_count-1] )))){
+      if(record_count==0){
+        insert_in_block(node , record, 0);
+      }
+      else{
+        insert_in_block(node , record, record_count);
+      }
+      printf("Record inserted succesfully!\n");
+      BF_Block_SetDirty(block);
+      CALL_BF(BF_UnpinBlock(block));
+      BF_Block_Destroy(&block);
+      return 0;
+    }
     
     for (int i = 0; i < record_count; i++){
       if (record_get_key(&(metadata->schema), record) == record_get_key(&(metadata->schema), &(node->rec_array[i]))){
         record_print(&(metadata->schema), record);
         printf("Already exists! Was not inserted.\n");
+        CALL_BF(BF_UnpinBlock(block));
+        BF_Block_Destroy(&block);
         return -1;
       } else if (record_get_key(&(metadata->schema), record) < record_get_key(&(metadata->schema), &(node->rec_array[i]))){
         
         if(record_count == BF_BLOCK_SIZE/sizeof(Record)){
           // insert_in_full_block();
         }else{
-          // insert_in_block();
+          insert_in_block(node,record,i);
+          printf("Record inserted succesfully!\n");
+          BF_Block_SetDirty(block);
+          CALL_BF(BF_UnpinBlock(block));
+          BF_Block_Destroy(&block);
+          return 0;
         }
 
       }
