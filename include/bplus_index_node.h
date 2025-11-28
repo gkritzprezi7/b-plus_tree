@@ -3,10 +3,11 @@
 /* Στο αντίστοιχο αρχείο .h μπορείτε να δηλώσετε τις συναρτήσεις
  * και τις δομές δεδομένων που σχετίζονται με τους Κόμβους Δεδομένων.*/
 
-struct bplus_index_node
-{
-    /* data */
+typedef struct bplus_index_node{
     
-};
+    int pointer_counter;
+    int pointer_key_array[127]
+    
+}indexNode;
 
 #endif

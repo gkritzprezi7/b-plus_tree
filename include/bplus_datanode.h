@@ -2,10 +2,14 @@
 #define BP_DATANODE_H
 /* Στο αντίστοιχο αρχείο .h μπορείτε να δηλώσετε τις συναρτήσεις
  * και τις δομές δεδομένων που σχετίζονται με τους Κόμβους Δεδομένων.*/
-struct bplus_datanode
-{
-    /* data */
-};
+typedef struct bplus_datanode{
+
+    int number_of_records;
+    int foo;
+    int foobar;
+    Record rec_array[5];
+
+} dataNode;
 
 
 

@@ -1,4 +1,6 @@
 #include "bplus_file_funcs.h"
+#include "bplus_index_node.h"
+#include "bplus_datanode.h"
 #include <stdio.h>
 
 
@@ -84,27 +86,28 @@ int bplus_record_find(const int file_desc, const BPlusMeta *metadata, const int 
 
   BF_Block *block;
   BF_Block_Init(&block);
-  
+
   int root_index = metadata->root_id;
   for (int depth = 1; depth <= metadata->depth; depth++){
 
     CALL_BF(BF_GetBlock(file_desc, root_index, block));
-    int *block_array = BF_Block_GetData(block);
+    indexNode* node = BF_Block_GetData(block);
+
     // the block contains an int in the 4 first bytes which is the 
     // count of pointers to other blocks, in the block
-    int pointer_count = block_array[0];
+    int pointer_count = node->pointer_counter;
     for (int block_index = 2; block_index < 2*pointer_count; block_index += 2){
 
-      int curr_key = block_array[block_index];
+      int curr_key = node->pointer_key_array[block_index];
 
       if (key < curr_key){
 
-        root_index = block_array[block_index - 1];
+        root_index = node->pointer_key_array[block_index - 1];
         break;
                 // if we reach last block
       }else if( (block_index == 2*(pointer_count - 1)) ||
-                (key < block_array[block_index + 2]) ){ 
-        root_index = block_array[block_index + 1];
+                (key < node->pointer_key_array[block_index + 2]) ){ 
+        root_index = node->pointer_key_array[block_index + 1];
         break;
       }
 
@@ -112,21 +115,19 @@ int bplus_record_find(const int file_desc, const BPlusMeta *metadata, const int 
     CALL_BF(BF_UnpinBlock(block));
   }
 
-  // so after reaching the metadata_depth number we have reached 
-  // the last level before the data.
+  // so after reaching the metadata_depth number we
+  // have reached the last level of index nodes.
 
   CALL_BF(BF_GetBlock(file_desc, root_index, block));
-  void *data = BF_Block_GetData(block);
+  dataNode* node = BF_Block_GetData(block);
 
-  int record_count = *(int *)data;
-  data = data + 12;
-  Record* record_array = (Record *)data;
+  int record_count = node->number_of_records;
 
   for(int i = 0 ; i < record_count; i++)
   {
-    if(record_array[i].values[0].int_value == key)
+    if(node->rec_array[i].values[0].int_value == key)
     {
-      **out_record = record_array[i];
+      **out_record = node->rec_array[i];
       CALL_BF(BF_UnpinBlock(block));
       BF_Block_Destroy(&block);
       return 0;
@@ -135,8 +136,6 @@ int bplus_record_find(const int file_desc, const BPlusMeta *metadata, const int 
 
   CALL_BF(BF_UnpinBlock(block));
   BF_Block_Destroy(&block);
-
-  
 
   *out_record=NULL;
   return -1;
