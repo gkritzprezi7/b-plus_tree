@@ -12,7 +12,7 @@
 
 typedef struct {
     TableSchema schema;
-    int depth;
+    int depth;      // depth of tree !without! data blocks
     int root_id;
     int record_size;    
     int record_capacity_per_block;
