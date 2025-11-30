@@ -15,6 +15,22 @@
     }                         \
   }
 
+#define block_routine(block , dirty , unpin ,  destroy)    \    
+  {                                    \
+    if(dirty)                          \
+    {                                  \
+      BF_Block_SetDirty(block);        \
+    }                                  \
+    if(unpin)                          \
+    {                                  \
+      CALL_BF(BF_UnpinBlock(block));   \
+    }                                  \
+    if(destroy)                        \
+    {                                  \
+      BF_Block_Destroy(&block);        \
+    }                                  \
+  }
+
 
 int bplus_create_file(const TableSchema *schema, const char *fileName)
 {
@@ -83,9 +99,31 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
   BF_Block *block;
   BF_Block_Init(&block);
   
-  if (metadata->depth == 0){
+  if (metadata->depth == 0)
+  {
+      BF_Block* block;
+      BF_Block_Init(&block);
+      CALL_BF(BF_AllocateBlock( file_desc, block));
+      dataNode* data = BF_Block_GetData(block);
 
-  }else{
+
+      data->number_of_records = 1;
+      data->next_data_block = -1;
+      data->rec_array[0] = *record;
+      block_routine(block , 1 , 1, 0);
+
+
+      CALL_BF(BF_AllocateBlock( file_desc, block));
+      indexNode* root = BF_Block_GetData(block);
+
+      root->pointer_counter =1;
+      root->pointer_key_array[0] = 1;
+      root->pointer_key_array[1] = record_get_key(&(metadata->schema), record);
+      block_routine(block  , 1 , 0 , 1);
+
+  }
+  else
+  {
 
     int root_index = metadata->root_id;
     for (int depth = 1; depth <= metadata->depth; depth++){
@@ -121,48 +159,41 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
 
     CALL_BF(BF_GetBlock(file_desc, root_index, block));
     dataNode* node = BF_Block_GetData(block);
-
+    int found = 0;
     int record_count = node->number_of_records;
 
-    if(record_count==0 || (record_count!= BF_BLOCK_SIZE/sizeof(Record) && record_get_key(&(metadata->schema), record) > record_get_key(&(metadata->schema), &(node->rec_array[record_count-1] )))){
-      if(record_count==0){
-        insert_in_block(node , record, 0);
-      }
-      else{
-        insert_in_block(node , record, record_count);
-      }
-      printf("Record inserted succesfully!\n");
-      BF_Block_SetDirty(block);
-      CALL_BF(BF_UnpinBlock(block));
-      BF_Block_Destroy(&block);
-      return 0;
-    }
-    
-    for (int i = 0; i < record_count; i++){
-      if (record_get_key(&(metadata->schema), record) == record_get_key(&(metadata->schema), &(node->rec_array[i]))){
+    for (int i = 0; i < record_count; i++)
+    {
+      if (record_get_key(&(metadata->schema), record) == record_get_key(&(metadata->schema), &(node->rec_array[i])))
+      {
         record_print(&(metadata->schema), record);
         printf("Already exists! Was not inserted.\n");
-        CALL_BF(BF_UnpinBlock(block));
-        BF_Block_Destroy(&block);
+        block_routine(block , 0 , 1 , 1);
         return -1;
-      } else if (record_get_key(&(metadata->schema), record) < record_get_key(&(metadata->schema), &(node->rec_array[i]))){
-        
-        if(record_count == BF_BLOCK_SIZE/sizeof(Record)){
+      } 
+      else if (record_get_key(&(metadata->schema), record) < record_get_key(&(metadata->schema), &(node->rec_array[i])))
+      {
+        found = 1;
+        if(record_count == BF_BLOCK_SIZE/sizeof(Record))
+        {
           // insert_in_full_block();
-        }else{
+        }
+        else
+        {
           insert_in_block(node,record,i);
           printf("Record inserted succesfully!\n");
-          BF_Block_SetDirty(block);
-          CALL_BF(BF_UnpinBlock(block));
-          BF_Block_Destroy(&block);
+          block_routine(block , 1 , 1 , 1);
           return 0;
         }
-
       }
     }
+
+    if ( !found )
+    {
+      insert_in_block(node , record, record_count);
+      block_routine(block , 1, 1 ,1);
+    }
     
-
-
   }
 
   return -1;

@@ -9,7 +9,7 @@ void insert_in_block(dataNode *node, const Record *record, int target);
 typedef struct bplus_datanode{
 
     int number_of_records;
-    int foo;
+    int next_data_block;
     int foobar;
     Record rec_array[5];
 
