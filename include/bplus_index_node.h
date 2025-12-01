@@ -3,7 +3,6 @@
 /* Στο αντίστοιχο αρχείο .h μπορείτε να δηλώσετε τις συναρτήσεις
  * και τις δομές δεδομένων που σχετίζονται με τους Κόμβους Δεδομένων.*/
 
-void print_index_node(indexNode * node);
 
 typedef struct bplus_index_node{
     
@@ -11,5 +10,8 @@ typedef struct bplus_index_node{
     int pointer_key_array[127]
     
 }indexNode;
+
+void print_index_node(indexNode * node);
+void insert_in_index_block(indexNode *node, int key , int pointer);
 
 #endif

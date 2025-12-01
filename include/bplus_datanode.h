@@ -3,9 +3,6 @@
 /* Στο αντίστοιχο αρχείο .h μπορείτε να δηλώσετε τις συναρτήσεις
  * και τις δομές δεδομένων που σχετίζονται με τους Κόμβους Δεδομένων.*/
 
-void print_datanode(const TableSchema *schema , dataNode * node);
-void insert_in_block(dataNode *node, const Record *record, int target);
-
 typedef struct bplus_datanode{
 
     int number_of_records;
@@ -15,6 +12,7 @@ typedef struct bplus_datanode{
 
 } dataNode;
 
-
+void print_datanode(const TableSchema *schema , dataNode * node);
+void insert_in_block(dataNode *node, const Record *record, int target);
 
 #endif

@@ -289,7 +289,6 @@ int bplus_record_find(const int file_desc, const BPlusMeta *metadata, const int 
 
 int insert_in_full_block(const int file_desc, BPlusMeta *metadata, const Record *record, int* traceroute , BF_Block * block, int target)
 {
-  int num_of_blocks;
   dataNode* node = BF_Block_GetData(block);
 
   BF_Block * new_block ; 
@@ -297,10 +296,12 @@ int insert_in_full_block(const int file_desc, BPlusMeta *metadata, const Record 
   CALL_BF(BF_AllocateBlock(file_desc, new_block));
   dataNode* data = BF_Block_GetData(new_block);
 
-  CALL_BF(BF_GetBlockCounter(file_desc ,&num_of_blocks ));
+  int count;
+  CALL_BF(BF_GetBlockCounter(file_desc ,&count));
 
+  int new_block_position = --count;
   data->next_data_block = node->next_data_block;
-  node->next_data_block = num_of_blocks-1 ;
+  node->next_data_block = new_block_position;
 
   Record record_array[6];
 
@@ -318,7 +319,31 @@ int insert_in_full_block(const int file_desc, BPlusMeta *metadata, const Record 
     node->rec_array[i] = record_array[i];
     data->rec_array[i] = record_array[i+3];
   }
+
+  int key_to_above = record_get_key(&metadata->schema, &record_array[3]);
+
+  block_routine(block , 1,1,1);
+  block_routine( new_block ,1,1,1);
+
+  int parent_index = traceroute[metadata->depth];
+
+  BF_Block * parent_block ; 
+  BF_Block_Init(&parent_block);
+  CALL_BF(BF_GetBlock(file_desc, parent_index, parent_block));
+  indexNode* parent = BF_Block_GetData(parent_block);
   
+  if(parent->pointer_counter == 64 ) // <---------------- change this 
+  {
+
+  }
+  else
+  {
+    insert_in_index_block(parent, key_to_above, new_block_position);
+    block_routine(parent_block, 1, 1, 1);
+    break;
+  }
+
+
   return -1;
 }
 
