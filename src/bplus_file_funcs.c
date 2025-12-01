@@ -206,7 +206,7 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
         }
         else
         {
-          insert_in_block(node,record,i);
+          insert_in_data_block(node,record,i);
           printf("Record inserted succesfully!\n");
           block_routine(block , 1 , 1 , 1);
           return 0;
@@ -216,7 +216,7 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
 
     if ( !found )
     {
-      insert_in_block(node , record, record_count);
+      insert_in_data_block(node , record, record_count);
       block_routine(block , 1, 1 ,1);
     }
     
@@ -340,7 +340,7 @@ int insert_in_full_block(const int file_desc, BPlusMeta *metadata, const Record 
   {
     insert_in_index_block(parent, key_to_above, new_block_position);
     block_routine(parent_block, 1, 1, 1);
-    break;
+    // break;
   }
 
 
