@@ -66,13 +66,12 @@ int bplus_create_file(const TableSchema *schema, const char *fileName)
 
 int bplus_open_file(const char *fileName, int *file_desc, BPlusMeta **metadata)
 {
-  int file_handle;
-  CALL_BF(BF_OpenFile(fileName , &file_handle));
+  CALL_BF(BF_OpenFile(fileName , file_desc));
 
   BF_Block* block;
   BPlusMeta* header;
   BF_Block_Init(&block);
-  CALL_BF(BF_GetBlock(file_handle , 0 , block));
+  CALL_BF(BF_GetBlock(*file_desc , 0 , block));
   header = (BPlusMeta*)BF_Block_GetData(block);
   *metadata = header;
   BF_Block_Destroy(&block);

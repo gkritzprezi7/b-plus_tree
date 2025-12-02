@@ -14,7 +14,7 @@ void print_datanode(const TableSchema *schema , dataNode * node)
     }
 }
 
-void insert_in_block(dataNode *node, const Record *record, int target)
+void insert_in_data_block(dataNode *node, const Record *record, int target)
 {
     // we shift all the elements of the record array one position to the right
     // in order to fit the incoming block in correct 'target' position
