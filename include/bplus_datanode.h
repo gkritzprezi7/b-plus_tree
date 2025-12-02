@@ -2,7 +2,7 @@
 #define BP_DATANODE_H
 /* Στο αντίστοιχο αρχείο .h μπορείτε να δηλώσετε τις συναρτήσεις
  * και τις δομές δεδομένων που σχετίζονται με τους Κόμβους Δεδομένων.*/
-
+#include "record.h"
 typedef struct bplus_datanode{
 
     int number_of_records; // number of records contained inside of the dataNode

@@ -1,5 +1,6 @@
 // Μπορείτε να προσθέσετε εδώ βοηθητικές συναρτήσεις για την επεξεργασία Κόμβων Δεδομένων.
 #include "bplus_index_node.h"
+#include <stdio.h>
 
 void print_index_node(indexNode * node)
 {
@@ -53,10 +54,10 @@ void insert_in_index_block(indexNode *node, int key , int pointer){
 }
 
 
-void insert_in_full_index_block(indexNode *node, int key , int pointer, int *new_block_pos)
-{
+// void insert_in_full_index_block(indexNode *node, int key , int pointer, int *new_block_pos)
+// {
 
         
 
 
-}
+// }

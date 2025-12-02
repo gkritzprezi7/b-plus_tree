@@ -1,5 +1,6 @@
 #include "bplus_datanode.h"
 #include "record.h"
+#include <stdio.h>
 
 void print_datanode(const TableSchema *schema , dataNode * node)
 {
