@@ -4,7 +4,7 @@
 
 void print_index_node(indexNode * node)
 {
-    printf("Pointer counter is %d" , node->pointer_counter);
+    printf("Pointer counter is %d\n" , node->pointer_counter);
     // CAUTION for case where in the root we have one pointer and one data !!!!!!!!!!!!!!!!!!!!!!!!!!!
     for(int i = 0 ; i < 2 * node->pointer_counter - 1 ; i++)
     {

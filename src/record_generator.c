@@ -103,7 +103,7 @@ TableSchema student_get_schema() {
 }
 
 void employee_random_record(const TableSchema *schema, Record *record) {\
-    const int id = get_random_number(200000);
+    const int id = get_random_number(100);
     int r = get_random_number(sizeof(names) / sizeof(names[0]));
     const char *name = names[r];
     r = get_random_number(sizeof(surnames) / sizeof(surnames[0]));

@@ -18,8 +18,7 @@ void insert_in_data_block(dataNode *node, const Record *record, int target)
 {
     // we shift all the elements of the record array one position to the right
     // in order to fit the incoming block in correct 'target' position
-
-    for(int i = node->number_of_records -1 ; i>=target ; i--){
+    for(int i = node->number_of_records - 1 ; i >= target ; i--){
         node->rec_array[i+1] = node->rec_array[i];
     }
 
