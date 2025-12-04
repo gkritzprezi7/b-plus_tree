@@ -37,7 +37,7 @@ typedef struct bplus_index_node{
 }indexNode;
 ```
 
-## Helper Functions
+## Helper Functions / Macros
 
 We have 2 helper functions each for printing the contents of data blocks and index blocks, here are the definitions of the functions:
 
@@ -45,6 +45,28 @@ We have 2 helper functions each for printing the contents of data blocks and ind
 void print_index_node(indexNode * node);
 void print_datanode(const TableSchema *schema , dataNode * node)
 ```
+
+We also added the macro block_routine to enhance readaility and decrease reoccuring lines of code throughout the program
+
+```c
+#define block_routine(block , dirty , unpin ,  destroy)    \
+  {                                                        \
+    if(dirty)                                              \
+    {                                                      \
+      BF_Block_SetDirty(block);                            \
+    }                                                      \
+    if(unpin)                                              \
+    {                                                      \
+      CALL_BF(BF_UnpinBlock(block));                       \
+    }                                                      \
+    if(destroy)                                            \
+    {                                                      \
+      BF_Block_Destroy(&block);                            \
+    }                                                      \
+  }
+```
+
+What we basically do here is we give the block we are working with and set 3 flags each with a specific purpose: setDirty , unpin or destroy
 
 ## BPlus Tree Manipulation Functions
 
