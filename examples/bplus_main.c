@@ -64,7 +64,7 @@ void insert_records(const TableSchema schema,
     random_record(&schema, &record);
 
     // printf("Insert value: %d\n", record_get_key(&schema, &record));
-    record_print(&schema, &record);
+    // record_print(&schema, &record);
 
     bplus_record_insert(file_desc, info, &record);
     // printf("------------------\n");

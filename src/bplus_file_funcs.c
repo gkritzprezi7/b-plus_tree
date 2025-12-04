@@ -98,7 +98,7 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
 
   BF_Block *block;
   BF_Block_Init(&block);
-  printf("Depth of tree is %d\n" , metadata->depth);
+  // printf("Depth of tree is %d\n" , metadata->depth);
   // BF_Block *temp;
   // BF_Block_Init(&temp);
   // if(metadata->depth != -1)
@@ -214,7 +214,7 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
       if (record_get_key(&(metadata->schema), record) == record_get_key(&(metadata->schema), &(node->rec_array[i])))
       {
         // record_print(&(metadata->schema), record);
-        printf("Already exists! Was not inserted.\n");
+        // printf("Already exists! Was not inserted.\n");
         block_routine(block , 0 , 1 , 1);
         return -1;
       } 
@@ -246,7 +246,7 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
         return insert_in_full_block(file_desc, metadata, record , traceroute , block , record_count);
       }
 
-      printf("The target is %d \n" , record_count);
+      // printf("The target is %d \n" , record_count);
       insert_in_data_block(node , record, record_count);
       // printf("Record inserted succesfully!\n");
 
@@ -264,7 +264,7 @@ int bplus_record_find(const int file_desc, const BPlusMeta *metadata, const int 
 
   BF_Block *block;
   BF_Block_Init(&block);
-  printf("rootid: %d, depth: %d\n", metadata->root_id, metadata->depth);
+  // printf("rootid: %d, depth: %d\n", metadata->root_id, metadata->depth);
   int root_index = metadata->root_id;
   for (int depth = 0; depth < metadata->depth; depth++){
 
@@ -421,7 +421,7 @@ int insert_in_full_block(const int file_desc, BPlusMeta *metadata, const Record 
       {
 
         int new_key_to_above = parent->pointer_key_array[parent->pointer_counter - 1];  // 63
-        printf("The DATO to be inserted is %d \n" , new_key_to_above );
+        // printf("The DATO to be inserted is %d \n" , new_key_to_above );
         BF_Block* new_index_block;
 
         BF_Block_Init(&new_index_block);
@@ -430,7 +430,7 @@ int insert_in_full_block(const int file_desc, BPlusMeta *metadata, const Record 
         indexNode* new_index_block_node = (indexNode *)BF_Block_GetData(new_index_block);
 
         int pointer_counter_of_old_index_block = parent->pointer_counter/2  ;  // 32
-        printf("Pointer counter of old index block is %d \n " , pointer_counter_of_old_index_block);
+        // printf("Pointer counter of old index block is %d \n " , pointer_counter_of_old_index_block);
 
         parent->pointer_counter = pointer_counter_of_old_index_block; //32
 
