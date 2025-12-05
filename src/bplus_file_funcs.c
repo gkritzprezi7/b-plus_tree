@@ -3,37 +3,6 @@
 #include "bplus_datanode.h"
 #include <stdio.h>
 
-
-#define bplus_ERROR -1
-#define CALL_BF(call)         \
-  {                           \
-    BF_ErrorCode code = call; \
-    if (code != BF_OK)        \
-    {                         \
-      BF_PrintError(code);    \
-      return bplus_ERROR;     \
-    }                         \
-  }
-
-// similar to CALL_BF, its responsible for what has 
-// to be done to a given block according to the flags
-#define block_routine(block , dirty , unpin ,  destroy)    \
-  {                                                        \
-    if(dirty)                                              \
-    {                                                      \
-      BF_Block_SetDirty(block);                            \
-    }                                                      \
-    if(unpin)                                              \
-    {                                                      \
-      CALL_BF(BF_UnpinBlock(block));                       \
-    }                                                      \
-    if(destroy)                                            \
-    {                                                      \
-      BF_Block_Destroy(&block);                            \
-    }                                                      \
-  }
-
-
 // this function creates a new B+ tree file according to a data base schema 
 // provided and a specific name, returns an integer file identifier
 int bplus_create_file(const TableSchema *schema, const char *fileName)
@@ -98,57 +67,33 @@ int bplus_close_file(const int file_desc, BPlusMeta* metadata)
   return 0;
 }
 
-int insert_in_full_block(const int file_desc, BPlusMeta *metadata, const Record *record , int* traceroute , BF_Block * block , int target);
 
+// this function implements how the insertion works in the B+ tree
+// it returns the data block identifier (position in file) that the record was inserted to
 int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *record){
 
   BF_Block *block;
   BF_Block_Init(&block);
 
+  // we handle the first insertion in the tree differently than the others
   if (metadata->depth == -1)
   {
-      BF_Block *block;
-      BF_Block_Init(&block);
-      CALL_BF(BF_AllocateBlock(file_desc, block));
-      dataNode* data_left = (dataNode *)BF_Block_GetData(block);
-
-
-      data_left->number_of_records = 1;
-      data_left->next_data_block = 2;
-      data_left->rec_array[0] = *record;
-
-      block_routine(block , 1 , 1, 0);
-
-      CALL_BF(BF_AllocateBlock(file_desc, block));
-      dataNode* data_right = (dataNode *)BF_Block_GetData(block);
-      data_right->number_of_records = 0;
-      data_right->next_data_block = -1;
-
-      block_routine(block, 1, 1, 0);
-
-      CALL_BF(BF_AllocateBlock(file_desc, block));
-      indexNode* root = (indexNode *)BF_Block_GetData(block);
-
-      root->pointer_counter = 2;
-      root->pointer_key_array[0] = 1;
-      root->pointer_key_array[1] = record_get_key(&(metadata->schema), record) + BF_BLOCK_SIZE/sizeof(Record);
-      root->pointer_key_array[2] = 2;
-      block_routine(block  , 1 , 0 , 1);
-
-      metadata->depth = 1;
-      metadata->root_id = 3;
-      block_routine(block, 1, 0, 0);
-
-      return 1;
+    return first_insert_in_tree(file_desc, metadata, record);
   }
   else
   {
 
+    // we keep a path from the root to the data block, in which we will insert the record to
+    // if it does not exist, in the traceroute table. every cell, is a tree level
+    // and the value in it is the parent block from the previous level. last cell is the parent 
+    // of the data block we reached at etc...
     int traceroute[metadata->depth + 1];
     int root_index ,prev_index;
 
     prev_index = root_index = metadata->root_id;
 
+    // find the data block that should take the record and store the path to it
+    // similar to bplus_record_find(). nothing new to explain :)
     for (int depth = 0; depth < metadata->depth; depth++)
     {
 
@@ -159,8 +104,6 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
   
       indexNode* node = (indexNode *)BF_Block_GetData(block);
 
-      // the block contains an int in the 4 first bytes which is the 
-      // count of pointers to other blocks, in the block
       int pointer_count = node->pointer_counter;
       for (int block_index = 1; block_index < 2*pointer_count - 1; block_index += 2)
       {
@@ -180,12 +123,12 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
 
       }
 
-      CALL_BF(BF_UnpinBlock(block));
+      block_routine(block, 0, 1, 0);
+
     }
+    // parent of root does not exist
     traceroute[0] = -1;
-
     traceroute[metadata->depth] = prev_index; // <-----------------------------------
-
 
     // thats the only block that could contain the record
     // that has to be inserted (so it wont be inserted)
@@ -193,11 +136,15 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
 
     CALL_BF(BF_GetBlock(file_desc, root_index, block));
     dataNode* node = (dataNode *)BF_Block_GetData(block);
-    int found = 0;
+    int pos_to_insert = -1;
     int record_count = node->number_of_records;
 
+    // search the data block to check if the record already exists or 
+    // to find a place in the already existing records to put it (to stay in order) 
     for (int i = 0; i < record_count; i++)
     {
+
+      // if record already exists, insertion failed return -1
       if (record_get_key(&(metadata->schema), record) == record_get_key(&(metadata->schema), &(node->rec_array[i])))
       {
         printf("Already exists! Was not inserted.\n");
@@ -206,35 +153,41 @@ int bplus_record_insert(const int file_desc, BPlusMeta *metadata, const Record *
       } 
       else if (record_get_key(&(metadata->schema), record) < record_get_key(&(metadata->schema), &(node->rec_array[i])))
       {
-        found = 1;
-        if(record_count == BF_BLOCK_SIZE/sizeof(Record))
-        {
-          return insert_in_full_block(file_desc, metadata, record , traceroute , block , i);
-        }
-        else
-        {
-
-          insert_in_data_block(node,record,i);
-          printf("Record inserted succesfully!\n");
-          block_routine(block, 1, 1, 1);
-          return root_index;
-        }
+        // the record has to take the place of the next one.
+        pos_to_insert = i;
+        break;
       }
     }
 
-    if ( !found )
+    if (pos_to_insert == -1) // there was no place found to insert between records, so insert in the end
     {
 
-      if(record_count == BF_BLOCK_SIZE/sizeof(Record))
+      // if the data block is full we have to split it and fix the tree
+      if(record_count == metadata->record_capacity_per_block)
       {
-        return insert_in_full_block(file_desc, metadata, record , traceroute , block , record_count);
+        return insert_in_full_data_block(file_desc, metadata, record , traceroute , block , record_count);
       }
 
+      // insert and return :)
       insert_in_data_block(node , record, record_count);
       printf("Record inserted succesfully!\n");
 
       block_routine(block, 1, 1, 1);
       return root_index;
+    }
+    else // insert between records in given position
+    {
+      if(record_count == metadata->record_capacity_per_block)
+      {
+        return insert_in_full_data_block(file_desc, metadata, record , traceroute , block , pos_to_insert);
+      }
+
+      insert_in_data_block(node , record, pos_to_insert);
+      printf("Record inserted succesfully!\n");
+
+      block_routine(block, 1, 1, 1);
+      return root_index;
+      
     }
     
   }
@@ -303,160 +256,3 @@ int bplus_record_find(const int file_desc, const BPlusMeta *metadata, const int 
   *out_record=NULL; // search failed
   return -1;
 }
-
-
-
-int insert_in_full_block(const int file_desc, BPlusMeta *metadata, const Record *record, int* traceroute , BF_Block * block, int target)
-{
-  dataNode* node = (dataNode *)BF_Block_GetData(block);
-
-  BF_Block * new_block ; 
-  BF_Block_Init(&new_block);
-  CALL_BF(BF_AllocateBlock(file_desc, new_block));
-  dataNode* data = (dataNode *)BF_Block_GetData(new_block);
-
-  int count;
-  CALL_BF(BF_GetBlockCounter(file_desc ,&count));
-
-  int new_block_position = --count;
-  data->next_data_block = node->next_data_block;
-  node->next_data_block = new_block_position;
-
-  Record record_array[6];
-
-  for(int i= 0 ; i < target; i++){
-    record_array[i] = node->rec_array[i];
-  }
-  record_array[target] = *record;
-  for(int i = target + 1 ; i < 6 ; i++){
-    record_array[i] = node->rec_array[i-1];
-  }
-
-  node->number_of_records = data->number_of_records = 3 ; 
-
-  for(int i = 0 ; i<3 ; i++){
-    node->rec_array[i] = record_array[i];
-    data->rec_array[i] = record_array[i+3];
-  }
-
-  int key_to_above = record_get_key(&metadata->schema, &record_array[3]);
-
-  block_routine(block , 1,1,1);
-  block_routine(new_block ,1,1,1);
-
-
-  BF_Block * parent_block ; 
-  BF_Block_Init(&parent_block);
-
-  int parent_index ;
-  indexNode* parent;
-
-  for(int i = metadata->depth ; i > 0; i--)
-  {
-    parent_index = traceroute[ i ];
-    CALL_BF(BF_GetBlock(file_desc, parent_index, parent_block));
-    parent = (indexNode *)BF_Block_GetData(parent_block);
-
-    if(parent->pointer_counter == 64 ) // <---------------- change this 
-    {
-
-      if(i > 1){
-
-        int new_key_to_above = parent->pointer_key_array[parent->pointer_counter - 1];  // 63
-
-        BF_Block* new_index_block;
-
-        BF_Block_Init(&new_index_block);
-        CALL_BF(BF_AllocateBlock(file_desc, new_index_block));
-        indexNode* new_index_block_node = (indexNode *)BF_Block_GetData(new_index_block);
-
-        int pointer_counter_of_old_index_block = parent->pointer_counter/2  ;  // 32
-
-        parent->pointer_counter = pointer_counter_of_old_index_block;
-
-        new_index_block_node->pointer_counter = pointer_counter_of_old_index_block ;
-
-        for( int i = 0; i < 63; i++)
-        {
-          new_index_block_node->pointer_key_array[i] = parent->pointer_key_array[ i + 64 ];
-        }
-
-
-        if ( key_to_above < new_key_to_above)
-        {
-          insert_in_index_block( parent , key_to_above , new_block_position);
-        }
-        else
-        {
-          insert_in_index_block(  new_index_block_node , key_to_above , new_block_position);
-        }
-
-        key_to_above = new_key_to_above;
-        new_block_position++;
-
-        block_routine(parent_block, 1, 1, 0);
-        block_routine(new_index_block, 1, 1, 1);
-
-      }
-      else // if we have to insert in full root
-      {
-
-        int new_key_to_above = parent->pointer_key_array[parent->pointer_counter - 1];  // 63
-
-        BF_Block* new_index_block;
-
-        BF_Block_Init(&new_index_block);
-        CALL_BF(BF_AllocateBlock(file_desc, new_index_block));
-        
-        indexNode* new_index_block_node = (indexNode *)BF_Block_GetData(new_index_block);
-
-        int pointer_counter_of_old_index_block = parent->pointer_counter/2  ;  // 32
-
-        parent->pointer_counter = pointer_counter_of_old_index_block; //32
-
-        new_index_block_node->pointer_counter = pointer_counter_of_old_index_block ; //32
-
-        for( int i = 0; i < 63; i++)
-        {
-          new_index_block_node->pointer_key_array[i] = parent->pointer_key_array[ i + 64 ];
-        }
-
-
-        if ( key_to_above < new_key_to_above )
-        {
-          insert_in_index_block( parent , key_to_above , new_block_position);
-        }
-        else
-        {
-          insert_in_index_block(  new_index_block_node , key_to_above , new_block_position);
-        }
-
-        block_routine(new_index_block, 1, 1, 0);
-
-        CALL_BF(BF_AllocateBlock(file_desc, new_index_block));
-        indexNode* new_root = (indexNode *)BF_Block_GetData(new_index_block);
-        new_root->pointer_counter = 2;
-        new_root->pointer_key_array[0] = metadata->root_id;
-        new_root->pointer_key_array[1] = new_key_to_above;
-        new_root->pointer_key_array[2] = ++new_block_position;
-        metadata->root_id = ++new_block_position;
-        metadata->depth++;
-
-        block_routine(parent_block, 1, 1, 1);
-        block_routine(new_index_block, 1, 1, 1);
-
-      }
-    
-    }
-    else
-    {
-      insert_in_index_block(parent, key_to_above, new_block_position);
-      block_routine(parent_block, 1, 1, 1);
-      break;
-    }
-    
-
-  }
-  return count;
-}
-

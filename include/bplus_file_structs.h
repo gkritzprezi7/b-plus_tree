@@ -4,11 +4,42 @@
 
 #ifndef BPLUS_BPLUS_FILE_STRUCTS_H
 #define BPLUS_BPLUS_FILE_STRUCTS_H
-#include "bf.h"
-#include "bplus_datanode.h"
-#include "bplus_index_node.h"
+
+#define bplus_ERROR -1
+#define CALL_BF(call)         \
+  {                           \
+    BF_ErrorCode code = call; \
+    if (code != BF_OK)        \
+    {                         \
+      BF_PrintError(code);    \
+      return bplus_ERROR;     \
+    }                         \
+  }
+
+// similar to CALL_BF, its responsible for what has 
+// to be done to a given block according to the flags
+#define block_routine(block , dirty , unpin ,  destroy)    \
+  {                                                        \
+    if(dirty)                                              \
+    {                                                      \
+      BF_Block_SetDirty(block);                            \
+    }                                                      \
+    if(unpin)                                              \
+    {                                                      \
+      CALL_BF(BF_UnpinBlock(block));                       \
+    }                                                      \
+    if(destroy)                                            \
+    {                                                      \
+      BF_Block_Destroy(&block);                            \
+    }                                                      \
+  }
+
+
+// #include "bf.h"
+// #include "bplus_datanode.h"
+// #include "bplus_index_node.h"
 #include "record.h"
-#include "bplus_file_structs.h"
+// #include "bplus_file_structs.h"
 
 typedef struct {
     TableSchema schema;
