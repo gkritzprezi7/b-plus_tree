@@ -6,9 +6,9 @@
 #include "bf.h"
 typedef struct bplus_datanode{
 
-    int number_of_records; // number of records contained inside of the dataNode
-    int next_data_block;   // the pointer towards the next dataNode at the bottom of the Bplus tree
-    int foobar;            // a dummy variable to make the dataNode 512 bytes big 
+    int number_of_records;                            // number of records contained inside of the dataNode
+    int next_data_block;                              // the pointer towards the next dataNode at the bottom of the Bplus tree
+    int foobar;                                       // a dummy variable to make the dataNode 512 bytes big 
     Record rec_array[BF_BLOCK_SIZE/sizeof(Record)];   // the dataNode array which can contain a maximum of 5 records
 
 } dataNode;

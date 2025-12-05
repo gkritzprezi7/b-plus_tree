@@ -9,7 +9,7 @@
 
 typedef struct bplus_index_node{
     int pointer_counter;            // number of pointers contained in the indexNode
-    int pointer_key_array[SIZE];     // the array containing the key-index pairs of the Bplus tree
+    int pointer_key_array[SIZE];    // the array containing the key-index pairs of the Bplus tree
     // in our example the SIZE is 127 positions which fits 63 pairs of pointer-key and one final pointer in the end
 }indexNode;
 
