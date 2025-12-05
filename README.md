@@ -71,9 +71,17 @@ What we basically do here is we give the block we are working with and set 3 fla
 ## BPlus Tree Manipulation Functions
 
 ### bplus_create_file
-
-
-
+In the create_file function we create the first block of our bplus file and set the parameters of the metadata. Since the metadata block is the first to be created, it's block id will be 0.
+```c
+header->schema = *schema;
+header->depth = -1;
+header->root_id = -1;
+header->record_size = sizeof(Record);
+header->record_capacity_per_block = BF_BLOCK_SIZE/header->record_size;
+header->pointers_per_block = (BF_BLOCK_SIZE-sizeof(int))/(2 * sizeof(int)) + 1;
+header->keys_per_block = header->pointers_per_block -1;
+```
+By convention , when our tree is empty we set the depth and root_id of our tree to -1. As per the last three parameters, they are block size dependent, but the above calculations fit out 512 byte block best. A different block size could require an alteration of the above values.
 ### bplus_open_file
 
 The actions performed in open file are pretty straightforward, but here are some key takeaways:
