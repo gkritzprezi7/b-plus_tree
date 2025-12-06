@@ -202,7 +202,83 @@ block_routine(block, 0, 1, 1);
 ```
 
 Now we just simply traverse the dataNode based on the number of records it is already containing and return the record if it actualyl exists inside the block.
+
 ### bplus_record_insert
 
+Before we create the basic record insert functionality we need to take care of the insertion of a record on an empty BPlus tree. If the depth of the tree is ```-1```, which is when we have just created the tree, we need to call a special function to handle the first insertion calling ```first_insert_in_tree```.
 
+```c
+  // insert record on the left data block, initialise its values
+  BF_Block *block;
+  BF_Block_Init(&block);
+  CALL_BF(BF_AllocateBlock(file_desc, block));
+  dataNode* data_left = (dataNode *)BF_Block_GetData(block);
+
+  data_left->number_of_records = 1;
+  data_left->next_data_block = 2;
+  data_left->rec_array[0] = *record;
+
+  block_routine(block, 1, 1, 0);
+
+
+  // initialise an empty data block on the right of the already existing one
+  CALL_BF(BF_AllocateBlock(file_desc, block));
+  dataNode* data_right = (dataNode *)BF_Block_GetData(block);
+
+  data_right->number_of_records = 0;
+  data_right->next_data_block = -1;
+
+  block_routine(block, 1, 1, 0);
+
+  // also initialise the first root of the tree pointing to those two blocks
+  // and having as first key the first rec_id + 5 of the first record (check README for more)
+  CALL_BF(BF_AllocateBlock(file_desc, block));
+  indexNode* root = (indexNode *)BF_Block_GetData(block);
+
+  root->pointer_counter = 2;
+  root->pointer_key_array[0] = 1;
+  root->pointer_key_array[1] = record_get_key(&(metadata->schema), record) + metadata->record_capacity_per_block;
+  root->pointer_key_array[2] = 2;
+  block_routine(block, 1, 1, 1);
+
+  metadata->depth = 1;
+  metadata->root_id = 3;
+```
+In our implementation we treat the first insertion in a special way
+- We create 2 record blocks and 1 index block, which is the root of course
+- We insert the first record in the left record block, while we leave the right record block empty
+- We set the only key of the root to be the ```record_get_key(&(metadata->schema), record) + metadata->record_capacity_per_block;```, in order to achieve equal distribution of the records amongst the left data block
+
+With that idea in our mind, we set all the remaining attributes of the block accordinly.
+
+
+Having that edge case sorted out, its' time to do normal insertions in our Bplus Tree. In order to find where we will place the incoming record inside the tree, we first need to "find" it. So we need to traverse the BPlus Tree again to determine the data block it should be placed into. During the traversal of the tree we keep track of the index nodes we traversed in case we need to edit the index nodes due to an overflow.
+
+To achieve this we create the array ```int traceroute[metadata->depth + 1]```. 
+```traceroute[i]``` gives us the block id that led us to depth i. As a convention we set ```traceroute[0]``` to -1. 
+
+What we do now is traverse the Bplus tree just they way we described in record_find, but we now care to keep a record of traceroute throughout the traversal.
+
+Having found the appropriate data block we now search our incoming record key inside the block, if it already exists we discard the insertion. If it doesn't we find the position it should be inserted by taking advantage of the sorted keys of the record block. After that process there are now 4 cases we should take care of:
+
+- Record should be placed at the end (```pos_to_insert == -1```) and data block is full -> ```insert_in_full_data_block(file_desc, metadata, record , traceroute , block , record_count);```
+- Record should be placed at the end (```pos_to_insert == -1```) and data block is not full->```insert_in_data_block(node, record, record_count);```
+- Record should be placed at ```pos_to_insert``` and data block is full -> ```insert_in_full_data_block(file_desc, metadata, record , traceroute , block , pos_to_insert);```
+- Record should be placed at ```pos_to_insert``` and data block is not full ->```insert_in_data_block(node , record, pos_to_insert);```
+
+Let's now analyze the functionality of these 2 new functions used above:
+
+- ```void insert_in_data_block(dataNode *node, const Record *record, int target)```
+
+```c
+for(int i = node->number_of_records - 1 ; i >= target ; i--){
+    node->rec_array[i+1] = node->rec_array[i];
+}
+
+node->rec_array[target] = *record;
+node->number_of_records++;
+```
+Here we want to insert the incoming record at the ```target``` position, so we just shift all the elements from ```target``` onwards one position to the right and place the new record at it's new position.
+
+- ```insert_in_full_data_block(const int file_desc, BPlusMeta *metadata, const Record *record , int* traceroute , BF_Block * block , int target)```
 
