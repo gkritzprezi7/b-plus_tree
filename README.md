@@ -222,49 +222,19 @@ Now we just simply traverse the dataNode based on the number of records it is al
 Before we create the basic record insert functionality we need to take care of the insertion of a record on an empty BPlus tree. If the depth of the tree is ```-1```, which is when we have just created the tree, we need to call a special function to handle the first insertion calling ```first_insert_in_tree```.
 
 ```c
-  // insert record on the left data block, initialise its values
-  BF_Block *block;
-  BF_Block_Init(&block);
-  CALL_BF(BF_AllocateBlock(file_desc, block));
-  dataNode* data_left = (dataNode *)BF_Block_GetData(block);
-
-  data_left->number_of_records = 1;
-  data_left->next_data_block = 2;
-  data_left->rec_array[0] = *record;
-
-  block_routine(block, 1, 1, 0);
-
-
-  // initialise an empty data block on the right of the already existing one
-  CALL_BF(BF_AllocateBlock(file_desc, block));
-  dataNode* data_right = (dataNode *)BF_Block_GetData(block);
-
-  data_right->number_of_records = 0;
-  data_right->next_data_block = -1;
-
-  block_routine(block, 1, 1, 0);
-
-  // also initialise the first root of the tree pointing to those two blocks
-  // and having as first key the first rec_id + 5 of the first record (check README for more)
-  CALL_BF(BF_AllocateBlock(file_desc, block));
-  indexNode* root = (indexNode *)BF_Block_GetData(block);
-
-  root->pointer_counter = 2;
-  root->pointer_key_array[0] = 1;
-  root->pointer_key_array[1] = record_get_key(&(metadata->schema), record) + metadata->record_capacity_per_block;
-  root->pointer_key_array[2] = 2;
-  block_routine(block, 1, 1, 1);
-
-  metadata->depth = 1;
-  metadata->root_id = 3;
+if( metadata->root_id == -1 )
+{
+    CALL_BF(BF_AllocateBlock(file_desc, block));
+    dataNode* first_data = (dataNode *)BF_Block_GetData(block);
+    printf("Record inserted succesfully!\n");
+    first_data->rec_array[0] = *record;
+    first_data->number_of_records = 1;
+    metadata->root_id = 1;
+    block_routine(block, 1, 1, 1);
+    return 1;
+}
 ```
-In our implementation we treat the first insertion in a special way
-- We create 2 record blocks and 1 index block, which is the root of course
-- We insert the first record in the left record block, while we leave the right record block empty
-- We set the only key of the root to be the ```record_get_key(&(metadata->schema), record) + metadata->record_capacity_per_block;```, in order to achieve equal distribution of the records amongst the left data block
-
-With that idea in our mind, we set all the remaining attributes of the block accordinly.
-
+If this is the first ever insertion in our tree, we create a datablock and store the records inside of it, setting it as the "tree" of our root. We keep inserting records until the data block gets full. This triggers the routine ```make_first_root```, which splits the full data block in to two data blocks and connects them with our first root. The way these functions work is pretty straightforward and the same logic is described later in the README in the "normal" insertions.
 
 Having that edge case sorted out, its' time to do normal insertions in our Bplus Tree. In order to find where we will place the incoming record inside the tree, we first need to "find" it. So we need to traverse the BPlus Tree again to determine the data block it should be placed into. During the traversal of the tree we keep track of the index nodes we traversed in case we need to edit the index nodes due to an overflow.
 
