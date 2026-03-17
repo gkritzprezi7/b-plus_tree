@@ -18,7 +18,4 @@ COPY . .
 # 6. Compile the B+ Tree implementation using your existing Makefile
 RUN make bplus_main_compile
 
-# 7. Tell Docker what command to run when the container starts.
-# NOTE: You MUST change "your_executable_name" to whatever file your Makefile generates!
-# Since you have an 'examples' folder, it might output there.
-CMD ["./build/bp_main"]
+CMD ["make bplus_main_run"]
