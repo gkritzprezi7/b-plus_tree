@@ -1,0 +1,67 @@
+name: B+ Tree DevSecOps Pipeline
+
+on:
+  push:
+    branches: [ "main" ] # Runs automatically when you push to main!
+  workflow_dispatch:     # Also lets you click a button to run it manually
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. Login to GitHub Container Registry (Uncommented from template)
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} # GitHub provides this token automatically!
+
+      # 2. NEW STEP: Build your Dockerfile and push it to GHCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      # 3. Docker Scout Scan (Pointed at your new image)
+      - name: Docker Scout
+        uses: docker/scout-action@v1
+        with:
+          command: cves,recommendations,sbom
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          exit-code: false  # Won't fail the pipeline just because it finds vulnerabilities
+          sarif-file: sca_scout.sarif
+          output: sbom_scout.spdx.json
+
+      # 4. Uploading the reports (Kept exactly from template)
+      - name: Upload SBOM file as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom_scout.spdx.json
+          path: sbom_scout.spdx.json
+
+      - name: Upload SARIF file as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sca_scout.sarif
+          path: sca_scout.sarif
+
+      - name: Upload SARIF file to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sca_scout.sarif
+          category: Security/SCA
