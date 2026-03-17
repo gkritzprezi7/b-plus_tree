@@ -25,9 +25,8 @@ jobs:
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }} # GitHub provides this token automatically!
+          username: ${{ secrets.docker_username }}
+          password: ${{ secrets.docker_password }} # GitHub provides this token automatically!
 
       # 2. NEW STEP: Build your Dockerfile and push it to GHCR
       - name: Build and push Docker image
