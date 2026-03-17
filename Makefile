@@ -7,4 +7,3 @@ bplus_main_run: bplus_main_compile
 	@echo " Running bf_main ..."
 	rm -f *.db
 	./build/bp_main
-
